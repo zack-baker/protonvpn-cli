@@ -8,8 +8,57 @@
 #Author: Mazin Ahmed <Mazin AT ProtonMail DOT ch>
 ######################################################
 
+#Moved functions above to define them before use
 
-if [[ ("$UID" != 0) && ("$1" != "ip") && ("$1" != "-ip") && ("$1" != "--ip") ]]; then
+function help_message() {
+    echo "ProtonVPN Command-Line Tool"
+    echo -e "\tUsage:"
+    echo "$0 -init, --init                   Initialize ProtonVPN profile on the machine."
+    echo "$0 -c, -connect                    Select a VPN from ProtonVPN menu."
+    echo "$0 -random-connect                 Connect to a random ProtonVPN VPN."
+    echo "$0 -fastest-connect                Connected to a fast ProtonVPN VPN."
+    echo "$0 -d, disconnect, -disconnect     Disconnect from VPN."
+    echo "$0 -ip                             Print the current public IP address."
+    echo "$0 -install                        Install protonvpn-cli."
+    echo "$0 -uninstall                      Uninstall protonvn-cli."
+    echo "$0 -h, --help                      Show help message."
+    exit 0
+}
+
+function check_ip() {
+  counter=0
+  ip=""
+  while [[ "$ip" == "" ]]; do
+    if [[ $counter -gt 0 ]]; then
+      sleep 2
+    fi
+
+    if [[ $counter -lt 3 ]]; then
+      ip=$(wget --header 'x-pm-appversion: Other' --header 'x-pm-apiversion: 3' \
+        --header 'Accept: application/vnd.protonmail.v1+json' \
+        --timeout 4 -q -O /dev/stdout 'https://api.protonmail.ch/vpn/location' \
+        | grep 'IP' | cut -d ':' -f2 | cut -d '"' -f2)
+      counter=$((counter+1))
+    else
+      ip="Error."
+    fi
+  done
+  echo "$ip"
+}
+
+#if the first argument is empty, or it's one of '-h', '--help', '-help', '--h', or 'help', call help_message (no need for sudo)
+if [[ -z "$1" || ( ("$1" == "-h") || ("$1" == "--help") || ("$1" == "-help") || ("$1" == "--h") || ("$1" == "help") ) ]]; then
+  help_message
+fi
+
+#if the first argument is 'ip', '-ip', or '--ip', print ip info (no need for sudo)
+if [[ ( ("$1" == "ip") || ("$1" == "-ip") || ("$1" == "--ip") ) ]]; then
+  check_ip
+  exit 0
+fi
+
+#For all other commands, the user must be root to access, so exit if not root.
+if [[ ("$UID" != 0) ]]; then
   echo "[!] Error: The program requires root access."
   exit 1
 fi
@@ -38,26 +87,7 @@ function check_requirements() {
   fi
 }
 
-function check_ip() {
-  counter=0
-  ip=""
-  while [[ "$ip" == "" ]]; do
-    if [[ $counter -gt 0 ]]; then
-      sleep 2
-    fi
 
-    if [[ $counter -lt 3 ]]; then
-      ip=$(wget --header 'x-pm-appversion: Other' --header 'x-pm-apiversion: 3' \
-        --header 'Accept: application/vnd.protonmail.v1+json' \
-        --timeout 4 -q -O /dev/stdout 'https://api.protonmail.ch/vpn/location' \
-        | grep 'IP' | cut -d ':' -f2 | cut -d '"' -f2)
-      counter=$((counter+1))
-    else
-      ip="Error."
-    fi
-  done
-  echo "$ip"
-}
 
 function init_cli() {
   rm -rf ~/.protonvpn-cli/  # Previous profile will be removed/overwritten, if any.
@@ -415,20 +445,7 @@ END`
   echo "$output"
 }
 
-function help_message() {
-    echo "ProtonVPN Command-Line Tool"
-    echo -e "\tUsage:"
-    echo "$0 -init, --init                   Initialize ProtonVPN profile on the machine."
-    echo "$0 -c, -connect                    Select a VPN from ProtonVPN menu."
-    echo "$0 -random-connect                 Connect to a random ProtonVPN VPN."
-    echo "$0 -fastest-connect                Connected to a fast ProtonVPN VPN."
-    echo "$0 -d, disconnect, -disconnect     Disconnect from VPN."
-    echo "$0 -ip                             Print the current public IP address."
-    echo "$0 -install                        Install protonvpn-cli."
-    echo "$0 -uninstall                      Uninstall protonvn-cli."
-    echo "$0 -h, --help                      Show help message."
-    exit 0
-}
+
 
 check_requirements
 user_input=$1
